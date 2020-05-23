@@ -21,31 +21,23 @@ To understand how mobx reacts and what it reacts to, we will create a small obse
 
 ### Create observable state
 
-```
-import  {  Observable  }  from  "rxjs";
+```js
+import { Observable } from "rxjs";
 
-export  const  person=  {};
+export const person = {};
 
-export  const  nameObservable  =  new  Observable(observer  =>  {
+export const nameObservable = new Observable(observer => {
+  Object.defineProperty(person, "firstName", {
+    get: function() {
+      return this._firstName.toUpperCase();
+    },
 
-Object.defineProperty(person,  "firstName",  {
+    set: function(name) {
+      this._firstName = name;
 
-get:  function()  {
-
-return  this._firstName.toUpperCase();
-
-},
-
-set:  function(name)  {
-
-this._firstName  =  name;
-
-observer.next(this._firstName);
-
-}
-
-});
-
+      observer.next(this._firstName);
+    }
+  });
 });
 ```
 
@@ -55,50 +47,33 @@ In the above code snippet `person` is our state. We add a new property `firstNam
 
 Now we just need to bind our component to observable state such that whenever the setter function is called our component would rerender. Lets see an example in React.
 
-```
-import  React,  {  useState,  useEffect  }  from  "react";
-import  {  nameObservable,  person  }  from  "./state";
+```js
+import React, { useState, useEffect } from "react";
+import { nameObservable, person } from "./state";
 
+function App() {
+  const [, setState] = useState();
 
+  useEffect(() => {
+    nameObservable.subscribe(() => setState({}));
 
-function  App()  {
+    return () => nameObservable.unsubscribe();
+  }, []);
 
-const  [, setState] =  useState();
+  return (
+    <>
+      <div>Name {person.firstName}</div>
 
-useEffect(()  =>  {
-
-nameObservable.subscribe(()  =>  setState({}));
-
-return  ()  =>  nameObservable.unsubscribe();
-
-},  []);
-
-
-
-return  (
-
-<>
-
-<div>Name {person.firstName}</div>
-
-<input
-
-onChange={e => {
-
-person.firstName = e.target.value;
-
-}}
-
-/>
-
-</>
-
-);
-
+      <input
+        onChange={e => {
+          person.firstName = e.target.value;
+        }}
+      />
+    </>
+  );
 }
 
-
-export  default  App;
+export default App;
 ```
 
 The flow is like `person.firstName = e.target.value;` --->`observe.next()` ---> `() => setState({})` ---> rerender `<App/>`
@@ -113,172 +88,113 @@ Mobx provides 2 ways to create state and components
 2. @observable annotations.
    In this example we will use functions as annotations are still not part of official ES.
 
-```
-import  {  observable  }  from  "mobx";
+```js
+import { observable } from "mobx";
 
+const indiaTotalMatches = observable.box(100);
 
+const australiaTotalMatches = observable.box(100);
 
-const  indiaTotalMatches  =  observable.box(100);
+const score = observable({
+  india: {
+    kohli: 0,
 
-const  australiaTotalMatches  =  observable.box(100);
+    sehwag: 0
+  },
 
+  australia: {
+    stuart: 0,
 
-
-const  score  =  observable({
-
-india:  {
-
-kohli:  0,
-
-sehwag:  0
-
-},
-
-australia:  {
-
-stuart:  0,
-
-david:  0
-
-}
-
+    david: 0
+  }
 });
 
+const indiaScores = observable([215, 305]);
 
+export const state = {
+  indiaTotalMatches,
 
-const  indiaScores  =  observable([215,  305]);
+  australiaTotalMatches,
 
+  score,
 
-
-export  const  state  =  {
-
-indiaTotalMatches,
-
-australiaTotalMatches,
-
-score,
-
-indiaScores
-
+  indiaScores
 };
 ```
 
 We created premitive, nested object and array state objects. We need to pay special attention on how we create state and how we mutate it. Because mobx will not react to mutations if this is not done correctly. We discuss this further in the article.
 
-```
-import  React  from  "react";
+```js
+import React from "react";
 
-import  "./styles.css";
+import "./styles.css";
 
-import  {
+import { state } from "./state";
 
-state
+import {
+  incrIndiaScore,
+  incrKohli,
+  incrAustraliaScore,
+  incrStuart,
+  addIndiaScores
+} from "./actions";
 
-}  from  "./state";
+import { observer } from "mobx-react";
 
-import  {
+import { toJS } from "mobx";
 
-incrIndiaScore,
+const MobxApp = observer(() => {
+  return (
+    <div className="App">
+      <h1>React Observables</h1>
 
-incrKohli,
+      <div>Integer</div>
 
-incrAustraliaScore,
+      <div>
+        india Score {state.indiaTotalMatches.get()}
+        <button onClick={incrIndiaScore}>+</button>
+      </div>
 
-incrStuart,
+      <div>
+        Australia score {state.australiaTotalMatches.get()}
+        <button onClick={incrAustraliaScore}>+</button>
+      </div>
 
-addIndiaScores
+      <br />
 
-}  from  "./actions";
+      <div>Nested Object</div>
 
-import  {  observer  }  from  "mobx-react";
+      <div>
+        Kohli score {state.score.india.kohli}
+        <button onClick={incrKohli}>+</button>
+      </div>
 
-import  {  toJS  }  from  "mobx";
+      <div>
+        Stuart score {state.score.australia.stuart}
+        <button onClick={incrStuart}>+</button>
+      </div>
 
+      <br />
 
+      <div>Array</div>
 
-const  MobxApp  =  observer(()  =>  {
-
-return  (
-
-<div  className="App">
-
-<h1>React Observables</h1>
-
-<div>Integer</div>
-
-<div>
-
-india Score {state.indiaTotalMatches.get()}
-
-<button  onClick={incrIndiaScore}>+</button>
-
-</div>
-
-<div>
-
-Australia score {state.australiaTotalMatches.get()}
-
-<button  onClick={incrAustraliaScore}>+</button>
-
-</div>
-
-<br  />
-
-<div>Nested Object</div>
-
-<div>
-
-Kohli score {state.score.india.kohli}
-
-<button  onClick={incrKohli}>+</button>
-
-</div>
-
-<div>
-
-Stuart score {state.score.australia.stuart}
-
-<button  onClick={incrStuart}>+</button>
-
-</div>
-
-<br  />
-
-<div>Array</div>
-
-<div>
-
-{toJS(state.indiaScores).join(", ")}
-
-<button  onClick={addIndiaScores}>+</button>
-
-</div>
-
-</div>
-
-);
-
+      <div>
+        {toJS(state.indiaScores).join(", ")}
+        <button onClick={addIndiaScores}>+</button>
+      </div>
+    </div>
+  );
 });
 
-
-
-function  App()  {
-
-return  (
-
-<>
-
-<MobxApp  />
-
-</>
-
-);
-
+function App() {
+  return (
+    <>
+      <MobxApp />
+    </>
+  );
 }
 
-
-
-export  default  App;
+export default App;
 ```
 
 `Observer(<App/>)` creates a observer component. We directly import our state and use it in App. Mobx will keep a watch on all observable state that we use in this app and rerender our component when state mutates.
@@ -291,63 +207,30 @@ Couple of points to note:
 
 Now we define the actions that will mutate our state
 
-```
-import  {  action  }  from  "mobx";
+```js
+import { action } from "mobx";
+import { state } from "./state";
 
-import  {  state  }  from  "./state";
-
-
-
-export  const  incrIndiaScore  =  action(()  =>  {
-
-let  matches  =  state.indiaTotalMatches.get();
-
-state.indiaTotalMatches.set(++matches);
-
+export const incrIndiaScore = action(() => {
+  let matches = state.indiaTotalMatches.get();
+  state.indiaTotalMatches.set(++matches);
 });
 
-
-
-export  const  incrAustraliaScore  =  action(()  =>  {
-
-let  matches  =  state.australiaTotalMatches.get();
-
-state.australiaTotalMatches.set(++matches);
-
+export const incrAustraliaScore = action(() => {
+  let matches = state.australiaTotalMatches.get();
+  state.australiaTotalMatches.set(++matches);
 });
 
-
-
-export  const  incrKohli  =  action(()  =>  {
-
-let  score  =  state.score.india.kohli;
-
-score  +=  1;
-
-state.score.india  =  {
-
-kohli:  score
-
-};
-
-// state.score.india.kohli++;
-
+export const incrKohli = action(() => {
+  state.score.india.kohli++;
 });
 
-
-
-export  const  incrStuart  =  action(()  =>  {
-
-state.score.australia.stuart++;
-
+export const incrStuart = action(() => {
+  state.score.australia.stuart++;
 });
 
-
-
-export  const  addIndiaScores  =  action(()  =>  {
-
-state.indiaScores.push(Math.round(Math.random()  *  (400  -  200)));
-
+export const addIndiaScores = action(() => {
+  state.indiaScores.push(Math.round(Math.random() * (400 - 200)));
 });
 ```
 
@@ -357,7 +240,7 @@ A couple of points to note when mutating an mobx state.
 2. For primitive properties created using `observable.box()` we need to use set() and get() methods on the property. These are exposed by the observable state created bu mobx.
 3. When mutating a property on an nested object we need to be mind the level which we are changing. e.g.
    `state.score.india.kohli++; // triggers rerender`
-   ```
+   ```js
    let score = state.score.india.kohli;
    score += 1;
    state.score.india = { kohli: score }; // Does not trigger rerender
